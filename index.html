@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Painel de Emergência Infantil (Supabase)</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+
+<body class="bg-gray-100 text-gray-800">
+
+  <div id="status-container" class="fixed top-4 right-4 z-20">
+    <button id="server-status" class="px-4 py-2 rounded text-white bg-gray-500" disabled>
+      Status do Servidor
+    </button>
+  </div>
+
+  <main class="relative">
+    <div id="window1" class="h-screen flex items-center justify-center relative">
+      <div id="history-container" class="absolute top-4 left-4 z-20">
+        <button id="history-btn" class="px-4 py-2 rounded text-white bg-blue-500 hover:bg-blue-600 transition">
+          Histórico
+        </button>
+      </div>
+      <div class="flex flex-col items-center space-y-4">
+        <button class="room-btn w-64 py-4 rounded-lg bg-white shadow hover:bg-blue-100 transition" data-room="Berçário">
+          Berçário
+        </button>
+        <button class="room-btn w-64 py-4 rounded-lg bg-white shadow hover:bg-blue-100 transition"
+          data-room="02 a 04 anos">
+          02 a 04 anos
+        </button>
+        <button class="room-btn w-64 py-4 rounded-lg bg-white shadow hover:bg-blue-100 transition"
+          data-room="05 a 08 anos">
+          05 a 08 anos
+        </button>
+        <button class="room-btn w-64 py-4 rounded-lg bg-white shadow hover:bg-blue-100 transition"
+          data-room="09 a 12 anos">
+          09 a 12 anos
+        </button>
+      </div>
+    </div>
+
+    <div id="window2" class="hidden h-screen p-4 flex flex-col">
+      <div id="back-container" class="fixed top-4 left-4 z-20">
+        <button id="back-btn"
+          class="flex items-center justify-center p-2 bg-white rounded shadow hover:bg-gray-100 transition">
+          <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6 text-gray-700" fill="none" viewBox="0 0 24 24"
+            stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+          </svg>
+        </button>
+      </div>
+      <div id="grid-container" class="grid grid-cols-10 gap-2 flex-1 overflow-auto mt-12"></div>
+    </div>
+
+    <div id="popup" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-30">
+      <div class="bg-white p-6 rounded-lg shadow-lg w-80">
+        <p id="popup-text" class="mb-6 text-center text-lg"></p>
+        <div class="flex items-center justify-center space-x-4">
+          <button id="no-btn" class="px-6 py-2 rounded bg-red-500 text-white hover:bg-red-600 transition">
+            Não
+          </button>
+          <button id="yes-btn" class="px-6 py-2 rounded bg-green-500 text-white hover:bg-green-600 transition">
+            Sim
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div id="window4" class="hidden h-screen flex flex-col items-center justify-center space-y-4 p-4 text-center">
+      <p id="status-message" class="text-2xl font-semibold"></p>
+      <p id="detail-message" class="text-lg"></p>
+    </div>
+  </main>
+
+  <script>
+    let selectedRoom = null;
+    let selectedNumber = null;
+    let pendingPayload = null;
+    let history = [];
+
+    // --- [NOVO] Configuração do Supabase ---
+    const SUPABASE_URL = 'https://qlfcttfdxcfemwbtcviv.supabase.co'; // Ex: 'https://seuid.supabase.co'
+    const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFsZmN0dGZkeGNmZW13YnRjdml2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjIxNjQ1MDUsImV4cCI6MjA3Nzc0MDUwNX0.2Iv_rbUrFVNIF0veElaCq6DZoO-eHVWGx3TPqrTghGI';
+
+    // --- [CORREÇÃO DA INICIALIZAÇÃO] ---
+
+    // 1. Extraímos a função 'createClient' do objeto 'supabase' global (da CDN).
+    // Usamos 'window.supabase' para ter certeza que estamos pegando o global.
+    const { createClient } = window.supabase;
+
+    // 2. Criamos NOSSO cliente com um nome *diferente* (supabaseClient)
+    // para evitar o conflito de nome que causava o erro.
+    const supabaseClient = createClient(SUPABASE_URL, SUPABASE_KEY);
+
+    // 3. Criamos o canal a partir do NOSSO cliente (supabaseClient)
+    const channel = supabaseClient.channel('chamadas_emergencia');
+    // ------------------------------------
+
+    function addToHistory(room, number) {
+      history.unshift({ room, number });
+      if (history.length > 5) history.pop();
+    }
+
+    // [CRUD - READ] Função de Histórico modificada
+    async function showHistory() {
+
+      // 1. Define o intervalo de "hoje" no fuso horário local do navegador
+      const today = new Date();
+      today.setHours(0, 0, 0, 0); // Início do dia (ex: 00:00:00)
+
+      const tomorrow = new Date(today);
+      tomorrow.setDate(tomorrow.getDate() + 1); // Início do dia de amanhã (ex: 00:00:00)
+
+      // 2. Converte para o formato ISO (que o Supabase entende)
+      const startOfToday = today.toISOString();
+      const startOfTomorrow = tomorrow.toISOString();
+
+      try {
+        // 3. Faz a consulta (SELECT) filtrada no Supabase
+        // (Usamos o 'supabaseClient' que definimos anteriormente)
+        const { data, error } = await supabaseClient
+          .from('chamadas')                     // Da tabela 'chamadas'
+          .select('sala, numero, created_at')   // Selecione estas colunas
+          .gte('created_at', startOfToday)      // Onde 'created_at' é "maior ou igual" ao início de hoje
+          .lt('created_at', startOfTomorrow)    // E "menor que" o início de amanhã
+          .order('created_at', { ascending: false }); // Ordena pelas mais recentes primeiro
+
+        if (error) {
+          console.error("Erro ao buscar histórico:", error.message);
+          alert(`Erro ao buscar histórico: ${error.message}`);
+          return;
+        }
+
+        // 4. Formata e exibe os dados
+        if (data.length === 0) {
+          alert('Nenhuma chamada registrada HOJE.');
+        } else {
+          const list = data.map((chamada, i) => {
+            // Pega a hora da chamada (ex: "14:35:10")
+            const hora = new Date(chamada.created_at).toLocaleTimeString();
+            const sala = chamada.sala;
+            const numero = chamada.numero.toString().padStart(2, '0');
+
+            return `${i + 1}. [${hora}] Sala ${sala}, número ${numero}`;
+          }).join('\n');
+
+          alert(`Chamadas de Hoje:\n${list}`);
+        }
+
+      } catch (err) {
+        console.error("Erro inesperado no showHistory:", err.message);
+        alert(`Erro inesperado: ${err.message}`);
+      }
+    }
+
+    // --- [NOVO] Conexão com Supabase (Substitui connectWebSocket e updateStatusButton) ---
+    function connectSupabase() {
+      const btn = document.getElementById('server-status');
+
+      // Gerencia o status da conexão para o botão
+      channel.subscribe((status) => {
+        if (status === 'SUBSCRIBED') {
+          // Conectado com sucesso!
+          btn.textContent = 'Servidor Ativo';
+          btn.className = 'px-4 py-2 rounded text-white bg-green-600';
+
+          // Se tínhamos uma chamada pendente, envie agora
+          if (pendingPayload) {
+            console.log('Enviando payload pendente...');
+            channel.send({
+              type: 'broadcast',
+              event: pendingPayload.type, // 'call'
+              payload: pendingPayload.data,
+            });
+            pendingPayload = null;
+            showSuccess(); // Mostra sucesso, pois foi enviado
+          }
+        } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+          // Erro ou desconectado
+          btn.textContent = 'Servidor Inativo';
+          btn.className = 'px-4 py-2 rounded text-white bg-red-600';
+        } else {
+          // Conectando...
+          btn.textContent = 'Conectando...';
+          btn.className = 'px-4 py-2 rounded text-white bg-gray-500';
+        }
+      });
+    }
+    // --- (Funções connectWebSocket e updateStatusButton removidas) ---
+
+    function showWindow(id) {
+      ['window1', 'window2', 'window4'].forEach(w => document.getElementById(w).classList.add('hidden'));
+      document.getElementById(id).classList.remove('hidden');
+      document.getElementById('popup').classList.add('hidden');
+    }
+
+    function populateGrid() {
+      const container = document.getElementById('grid-container');
+      container.innerHTML = '';
+      for (let i = 1; i <= 150; i++) {
+        const btn = document.createElement('button');
+        btn.textContent = i.toString().padStart(2, '00');
+        btn.className = 'num-btn w-full h-12 rounded bg-white shadow hover:bg-blue-100 transition';
+        btn.dataset.number = i;
+        btn.addEventListener('click', () => openPopup(i));
+        container.appendChild(btn);
+      }
+    }
+
+    function openPopup(number) {
+      selectedNumber = number;
+      document.getElementById('popup-text').innerHTML =
+        `Sala <strong>${selectedRoom}</strong>, número <strong>${number.toString().padStart(2, '00')}</strong>.`;
+      document.getElementById('popup').classList.remove('hidden');
+    }
+
+    function showSuccess() {
+      showWindow('window4');
+      document.getElementById('status-message').textContent = 'Mensagem Enviada com Sucesso';
+      document.getElementById('status-message').className = 'text-2xl font-semibold text-green-600';
+      document.getElementById('detail-message').textContent =
+        `Sala ${selectedRoom}, número ${selectedNumber.toString().padStart(2, '00')}`;
+      addToHistory(selectedRoom, selectedNumber);
+      setTimeout(() => showWindow('window1'), 3000);
+    }
+
+    function showWaiting() {
+      showWindow('window4');
+      const msg = document.getElementById('status-message');
+      msg.textContent = 'Aguardando Resposta do Servidor...';
+      msg.className = 'text-2xl font-semibold text-red-600';
+      document.getElementById('detail-message').textContent =
+        `Sala ${selectedRoom}, número ${selectedNumber.toString().padStart(2, '00')}`;
+    }
+
+    // --- [ATUALIZADO] Inicialização da Página ---
+    window.addEventListener('DOMContentLoaded', () => {
+      // 1. Conecta ao Supabase (Substitui connectWebSocket e setInterval)
+      connectSupabase();
+
+      // 2. Popula o grid
+      populateGrid();
+
+      // 3. Listeners dos botões de navegação (sem alteração)
+      document.querySelectorAll('.room-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          selectedRoom = btn.dataset.room;
+          showWindow('window2');
+        });
+      });
+
+      document.getElementById('back-btn').addEventListener('click', () => showWindow('window1'));
+      document.getElementById('history-btn').addEventListener('click', showHistory);
+      document.getElementById('no-btn').addEventListener('click', () => document.getElementById('popup').classList.add('hidden'));
+
+      // 4. [CRUD - CREATE] Listener do botão "Sim" (Envia CHAMADA + Salva no DB)
+      document.getElementById('yes-btn').addEventListener('click', async () => {
+        document.getElementById('popup').classList.add('hidden');
+
+        // 1. Prepara os dados para o BANCO DE DADOS
+        // (os nomes das chaves devem ser IDÊNTICOS aos das colunas do DB)
+        const callDataDB = {
+          sala: selectedRoom,
+          numero: selectedNumber
+        };
+
+        // 2. Prepara o payload do BROADCAST
+        // (este é para o receptor.py, pode manter o formato antigo)
+        const broadcastPayload = {
+          type: 'broadcast',
+          event: 'call',
+          payload: {
+            room: selectedRoom,
+            number: selectedNumber
+          }
+        };
+
+        // 3. Verifica o status da conexão
+        const statusBtn = document.getElementById('server-status');
+        const isConnected = statusBtn.classList.contains('bg-green-600');
+
+        if (isConnected) {
+          try {
+            // --- ETAPA DE CRIAÇÃO (INSERT) ---
+            showWindow('window4'); // Mostra "Aguardando"
+            document.getElementById('status-message').textContent = 'Salvando no banco...';
+            document.getElementById('status-message').className = 'text-2xl font-semibold text-gray-600';
+
+            // [ CORREÇÃO ]
+            // Esta nova linha limpa os detalhes da tela
+            document.getElementById('detail-message').textContent = '';
+
+            const { error } = await supabaseClient
+              .from('chamadas') // Nome da nossa tabela
+              .insert([callDataDB]); // Os dados que queremos inserir
+
+            if (error) {
+              // Se der erro no banco, avisa no console e na tela
+              console.error("Erro ao salvar no banco:", error.message);
+              alert(`Erro ao salvar no banco: ${error.message}`);
+              showWindow('window2'); // Volta para a grade
+            } else {
+              // SUCESSO! O banco salvou.
+
+              // Agora, envia o broadcast para o receptor.py
+              channel.send(broadcastPayload);
+
+              // Atualiza a UI de sucesso (como antes)
+              showSuccess();
+            }
+
+          } catch (err) {
+            console.error("Erro inesperado:", err.message);
+            alert(`Um erro inesperado ocorreu: ${err.message}`);
+            showWindow('window2'); // Volta para a grade
+          }
+
+        } else {
+          // Se não estiver conectado, não podemos salvar no DB
+          // A lógica de broadcast pendente não tenta salvar no DB
+          alert("Não é possível salvar. Servidor desconectado.");
+          showWaiting(); // Mostra 'Aguardando Resposta'
+        }
+      });
+    });
+  </script>
+</body>
+
+</html>
