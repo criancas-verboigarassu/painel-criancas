@@ -1,0 +1,1158 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Painel de Emergência Infantil (Supabase)</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+  <script type="module" src="https://cdn.jsdelivr.net/npm/emoji-picker-element@^1/index.js"></script>
+
+  <style>
+    /* Esconde a barra de rolagem no grid para navegadores WebKit (Chrome, Safari, Edge) */
+    #grid-container::-webkit-scrollbar {
+      display: none;
+    }
+
+    /* Esconde a barra de rolagem no grid para Firefox */
+    #grid-container {
+      scrollbar-width: none;
+    }
+
+    /* [MODIFIQUE ESTA CLASSE no <style>] */
+
+    .deleted-message {
+      color: #a0aec0;
+      /* Cor cinza (Tailwind gray-500) */
+      font-style: italic;
+
+      /* [NOVO] Adiciona o ícone 🚫 e o alinha com o texto */
+      display: flex;
+      align-items: center;
+    }
+
+    .deleted-message svg {
+      width: 16px;
+      /* Tamanho do ícone */
+      height: 16px;
+      margin-right: 6px;
+      /* Espaço entre o ícone e o texto */
+    }
+
+    /* [ADICIONE ESTE NOVO BLOCO ao <style>] */
+
+    /* Estilo para o novo botão de seta (menu) */
+    .chat-menu-arrow-btn {
+      position: absolute;
+      top: 2px;
+      /* Posição no canto */
+      right: 4px;
+      opacity: 0;
+      /* Escondido por padrão */
+      transition: opacity 0.2s ease;
+      cursor: pointer;
+      padding: 2px;
+      border-radius: 4px;
+      /* Fundo branco sutil para destacar no balão azul */
+      background-color: rgba(255, 255, 255, 0.2);
+    }
+
+    .chat-menu-arrow-btn:hover {
+      background-color: rgba(255, 255, 255, 0.4);
+    }
+
+    /* Mostra a seta ao passar o mouse no balão */
+    .chat-balloon:hover .chat-menu-arrow-btn {
+      opacity: 1;
+    }
+
+    .chat-menu-arrow-btn svg {
+      width: 16px;
+      /* Tamanho do ícone de seta */
+      height: 16px;
+      color: white;
+      /* Cor da seta */
+    }
+  </style>
+</head>
+
+<body class="bg-gray-100 text-gray-800">
+
+  <main class="relative">
+
+    <main class="relative">
+
+      <div id="top-bar-container" class="fixed top-4 left-4 right-4 z-20 flex justify-between items-center">
+
+        <div id="top-left-controls" class="flex items-center space-x-2">
+          <button id="back-btn"
+            class="hidden flex items-center justify-center p-2 bg-white rounded shadow hover:bg-gray-100 transition">
+            <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6 text-gray-700" fill="none" viewBox="0 0 24 24"
+              stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+            </svg>
+          </button>
+          <button id="history-btn" class="px-4 py-2 rounded text-white bg-blue-500 hover:bg-blue-600 transition">
+            Histórico
+          </button>
+          <button id="server-status" class="px-4 py-2 rounded text-white bg-gray-500" disabled>
+            Status do Servidor
+          </button>
+        </div>
+
+        <div id="chat-widget-container">
+          <div class="relative">
+
+            <button id="chat-toggle-btn"
+              class="p-2 rounded-full bg-blue-500 text-white shadow-lg hover:bg-blue-600 transition">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24"
+                stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round"
+                  d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+              </svg>
+            </button>
+
+            <div id="chat-backdrop" class="hidden fixed inset-0 z-40 bg-black/20 backdrop-blur-sm">
+            </div>
+
+            <div id="chat-window" class="hidden fixed inset-8 z-50 bg-white flex flex-col 
+                     rounded-xl shadow-2xl border border-gray-200">
+
+              <div class="p-3 border-b border-gray-200 flex justify-between items-center">
+                <h3 class="font-semibold text-gray-800">Chat da Equipe</h3>
+
+                <button id="chat-close-btn" class="p-1 rounded-full hover:bg-gray-200 transition">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-gray-600" fill="none" viewBox="0 0 24 24"
+                    stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+
+              <div id="chat-messages" class="flex-1 overflow-y-auto p-3 space-y-3 flex flex-col">
+                <div class="bg-gray-200 text-gray-800 p-2 rounded-lg self-start max-w-xs">
+                  Olá! Chat conectado.
+                </div>
+              </div>
+
+              <div class="relative">
+
+                <emoji-picker id="emoji-picker-element" class="hidden absolute bottom-full right-3 mb-2 z-50"
+                  locale="pt" data-source="https://cdn.jsdelivr.net/npm/emoji-picker-element-data@1/pt/cldr/data.json">
+                </emoji-picker>
+
+                <form id="chat-form" class="p-3 border-t border-gray-200 flex">
+
+                  <input id="chat-input" type="text" placeholder="Digite sua mensagem..."
+                    class="flex-1 border border-gray-300 rounded-l-md rounded-r-none border-r-0 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 relative focus:z-10 min-w-0">
+
+                  <button type="button" id="emoji-btn"
+                    class="relative -ml-px bg-white border-t border-b border-l border-gray-300 px-3 py-2 text-gray-500 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:z-10">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24"
+                      stroke="currentColor" stroke-width="2">
+                      <path stroke-linecap="round" stroke-linejoin="round"
+                        d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  </button>
+
+                  <button type="submit"
+                    class="bg-blue-500 text-white px-4 py-2 rounded-r-md rounded-l-none hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:z-10">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                      <path
+                        d="M10.894 2.553a1 1 0 00-1.788 0l-7 14a1 1 0 001.169 1.409l5-1.429A1 1 0 009 15.571V11a1 1 0 112 0v4.571a1 1 0 00.725.962l5 1.428a1 1 0 001.17-1.408l-7-14z" />
+                    </svg>
+                  </button>
+                </form>
+              </div>
+            </div>
+
+            <div id="history-modal" class="hidden fixed inset-8 z-50 bg-white flex flex-col 
+                        rounded-xl shadow-2xl border border-gray-200">
+
+              <div class="p-3 border-b border-gray-200 flex justify-between items-center">
+                <h3 class="font-semibold text-gray-800">Histórico de Chamadas (Hoje)</h3>
+                <button id="history-close-btn" class="p-1 rounded-full hover:bg-gray-200 transition">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-gray-600" fill="none" viewBox="0 0 24 24"
+                    stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+
+              <div id="history-content" class="flex-1 overflow-y-auto p-4 space-y-2">
+                <p class="text-gray-500 text-center">Carregando...</p>
+              </div>
+
+            </div>
+            <div id="identification-modal" class="hidden fixed inset-8 z-50 bg-white flex flex-col 
+              rounded-xl shadow-2xl border border-gray-200" style="max-width: 400px; max-height: 400px; margin: auto;">
+
+              <div class="p-3 border-b border-gray-200">
+                <h3 class="font-semibold text-gray-800 text-center">Identifique-se para continuar</h3>
+              </div>
+
+              <div class="flex-1 p-4 flex flex-col justify-center space-y-3">
+                <button class="id-btn w-full py-3 rounded-lg bg-blue-500 text-white shadow hover:bg-blue-600 transition"
+                  data-name="Berçário">
+                  Berçário
+                </button>
+                <button class="id-btn w-full py-3 rounded-lg bg-blue-500 text-white shadow hover:bg-blue-600 transition"
+                  data-name="02 a 04 anos">
+                  02 a 04 anos
+                </button>
+                <button class="id-btn w-full py-3 rounded-lg bg-blue-500 text-white shadow hover:bg-blue-600 transition"
+                  data-name="05 a 08 anos">
+                  05 a 08 anos
+                </button>
+                <button class="id-btn w-full py-3 rounded-lg bg-blue-500 text-white shadow hover:bg-blue-600 transition"
+                  data-name="09 a 12 anos">
+                  09 a 12 anos
+                </button>
+              </div>
+
+            </div>
+
+          </div>
+        </div>
+
+      </div>
+
+
+      <div id="window1" class="h-screen flex items-center justify-center relative">
+        <div class="flex flex-col items-center space-y-4">
+          <button class="room-btn w-64 py-4 rounded-lg bg-white shadow hover:bg-blue-100 transition"
+            data-room="Berçário">
+            Berçário
+          </button>
+          <button class="room-btn w-64 py-4 rounded-lg bg-white shadow hover:bg-blue-100 transition"
+            data-room="02 a 04 anos">
+            02 a 04 anos
+          </button>
+          <button class="room-btn w-64 py-4 rounded-lg bg-white shadow hover:bg-blue-100 transition"
+            data-room="05 a 08 anos">
+            05 a 08 anos
+          </button>
+          <button class="room-btn w-64 py-4 rounded-lg bg-white shadow hover:bg-blue-100 transition"
+            data-room="09 a 12 anos">
+            09 a 12 anos
+          </button>
+        </div>
+      </div>
+
+      <div id="window2" class="hidden h-screen px-4 pb-4 pt-16 flex flex-col">
+        <div id="grid-container" class="grid grid-cols-10 gap-2 flex-1 overflow-auto mt-2"></div>
+      </div>
+
+      <div id="popup" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-30">
+        <div class="bg-white p-6 rounded-lg shadow-lg w-80">
+          <p id="popup-text" class="mb-6 text-center text-lg"></p>
+          <div class="flex items-center justify-center space-x-4">
+            <button id="no-btn" class="px-6 py-2 rounded bg-red-500 text-white hover:bg-red-600 transition">
+              Não
+            </button>
+            <button id="yes-btn" class="px-6 py-2 rounded bg-green-500 text-white hover:bg-green-600 transition">
+              Sim
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div id="chat-context-menu"
+        class="hidden absolute z-50 bg-white w-48 rounded-md shadow-lg border border-gray-200 py-1">
+        <button id="context-delete-btn"
+          class="flex items-center px-4 py-2 text-sm text-red-600 hover:bg-gray-100 w-full text-left">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-3" viewBox="0 0 20 20" fill="currentColor">
+            <path fill-rule="evenodd"
+              d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z"
+              clip-rule="evenodd" />
+          </svg>
+          Apagar
+        </button>
+      </div>
+
+      <div id="window4" class="hidden h-screen flex flex-col items-center justify-center space-y-4 p-4 text-center">
+        <p id="status-message" class="text-2xl font-semibold"></p>
+        <p id="detail-message" class="text-lg"></p>
+      </div>
+    </main>
+
+    <script>
+      let selectedRoom = null;
+      let selectedNumber = null;
+      let pendingPayload = null;
+      let history = [];
+      let lastMessageDateStr = null;
+
+      // --- [NOVO] Configuração do Supabase ---
+      const SUPABASE_URL = 'https://qlfcttfdxcfemwbtcviv.supabase.co'; // Ex: 'https://seuid.supabase.co'
+      const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFsZmN0dGZkeGNmZW13YnRjdml2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjIxNjQ1MDUsImV4cCI6MjA3Nzc0MDUwNX0.2Iv_rbUrFVNIF0veElaCq6DZoO-eHVWGx3TPqrTghGI';
+
+
+
+      // --- [CORREÇÃO DA INICIALIZAÇÃO] ---
+
+      // 1. Extraímos a função 'createClient' do objeto 'supabase' global (da CDN).
+      // Usamos 'window.supabase' para ter certeza que estamos pegando o global.
+      const { createClient } = window.supabase;
+
+      // 2. Criamos NOSSO cliente com um nome *diferente* (supabaseClient)
+      // para evitar o conflito de nome que causava o erro.
+      const supabaseClient = createClient(SUPABASE_URL, SUPABASE_KEY);
+
+      // 3. Criamos o canal a partir do NOSSO cliente (supabaseClient)
+      const channel = supabaseClient.channel('chamadas_emergencia');
+      // ------------------------------------
+
+      const chatChannel = supabaseClient.channel('chat_room');
+      let senderName = null; // [MODIFICADO] Começa como nulo. O usuário deve se identificar.
+
+      function addToHistory(room, number) {
+        history.unshift({ room, number });
+        if (history.length > 5) history.pop();
+      }
+
+
+
+      // --- [NOVO] Conexão com Supabase (Substitui connectWebSocket e updateStatusButton) ---
+      function connectSupabase() {
+        const btn = document.getElementById('server-status');
+
+        // Gerencia o status da conexão para o botão
+        channel.subscribe((status) => {
+          if (status === 'SUBSCRIBED') {
+            // Conectado com sucesso!
+            btn.textContent = 'Servidor Ativo';
+            btn.className = 'px-4 py-2 rounded text-white bg-green-600';
+
+            // Se tínhamos uma chamada pendente, envie agora
+            if (pendingPayload) {
+              console.log('Enviando payload pendente...');
+              channel.send({
+                type: 'broadcast',
+                event: pendingPayload.type, // 'call'
+                payload: pendingPayload.data,
+              });
+              pendingPayload = null;
+              showSuccess(); // Mostra sucesso, pois foi enviado
+            }
+          } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+            // Erro ou desconectado
+            btn.textContent = 'Servidor Inativo';
+            btn.className = 'px-4 py-2 rounded text-white bg-red-600';
+          } else {
+            // Conectando...
+            btn.textContent = 'Conectando...';
+            btn.className = 'px-4 py-2 rounded text-white bg-gray-500';
+          }
+        });
+      }
+      // --- (Funções connectWebSocket e updateStatusButton removidas) ---
+
+      // Função DEPOIS (Substitua pela nova versão abaixo)
+      function showWindow(id) {
+        // 1. Esconde todas as janelas principais
+        ['window1', 'window2', 'window4'].forEach(w => document.getElementById(w).classList.add('hidden'));
+        // 2. Mostra a janela alvo
+        document.getElementById(id).classList.remove('hidden');
+        // 3. Garante que o popup esteja escondido
+        document.getElementById('popup').classList.add('hidden');
+
+        // --- [LÓGICA DE BOTÕES ATUALIZADA] ---
+        // 4. Pega os botões individuais
+        const backBtn = document.getElementById('back-btn');
+        const historyBtn = document.getElementById('history-btn');
+        const serverStatusBtn = document.getElementById('server-status');
+
+        if (id === 'window1') {
+          // 5. Na Tela Inicial: Mostra Histórico/Servidor, Esconde Voltar
+          backBtn.classList.add('hidden');
+          historyBtn.classList.remove('hidden');
+          serverStatusBtn.classList.remove('hidden');
+        } else if (id === 'window2') {
+          // 6. Na Tela do Grid: Mostra TODOS (Voltar, Histórico, Servidor)
+          backBtn.classList.remove('hidden');
+          historyBtn.classList.remove('hidden');
+          serverStatusBtn.classList.remove('hidden');
+        } else if (id === 'window4') {
+          // 7. Na Tela de Status (Sucesso/Erro): Esconde TODOS os botões de navegação
+          backBtn.classList.add('hidden');
+          historyBtn.classList.add('hidden');
+          serverStatusBtn.classList.add('hidden');
+        }
+      }
+
+      function populateGrid() {
+        const container = document.getElementById('grid-container');
+        container.innerHTML = '';
+        for (let i = 1; i <= 150; i++) {
+          const btn = document.createElement('button');
+          btn.textContent = i.toString().padStart(2, '00');
+          btn.className = 'num-btn w-full h-12 rounded bg-white shadow hover:bg-blue-100 transition disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed';
+          btn.dataset.number = i;
+          btn.addEventListener('click', () => openPopup(i));
+          container.appendChild(btn);
+        }
+      }
+
+      function openPopup(number) {
+        selectedNumber = number;
+        document.getElementById('popup-text').innerHTML =
+          `Sala <strong>${selectedRoom}</strong>, número <strong>${number.toString().padStart(2, '00')}</strong>.`;
+        document.getElementById('popup').classList.remove('hidden');
+      }
+
+      function showSuccess() {
+        showWindow('window4');
+        document.getElementById('status-message').textContent = 'Mensagem Enviada com Sucesso';
+        document.getElementById('status-message').className = 'text-2xl font-semibold text-green-600';
+        document.getElementById('detail-message').textContent =
+          `Sala ${selectedRoom}, número ${selectedNumber.toString().padStart(2, '00')}`;
+        addToHistory(selectedRoom, selectedNumber);
+        setTimeout(() => showWindow('window1'), 3000);
+      }
+
+      function showWaiting() {
+        showWindow('window4');
+        const msg = document.getElementById('status-message');
+        msg.textContent = 'Aguardando Resposta do Servidor...';
+        msg.className = 'text-2xl font-semibold text-red-600';
+        document.getElementById('detail-message').textContent =
+          `Sala ${selectedRoom}, número ${selectedNumber.toString().padStart(2, '00')}`;
+      }
+
+      // ... suas outras funções (showWaiting, etc) ...
+
+
+
+      // --- [ATUALIZADO] Inicialização da Página ---
+      window.addEventListener('DOMContentLoaded', () => {
+        // 1. Conecta ao Supabase (Substitui connectWebSocket e setInterval)
+        connectSupabase();
+
+        // 2. Popula o grid
+        populateGrid();
+
+        // 3. Listeners dos botões de navegação (sem alteração)
+        document.querySelectorAll('.room-btn').forEach(btn => {
+          btn.addEventListener('click', () => {
+            selectedRoom = btn.dataset.room;
+            showWindow('window2');
+          });
+        });
+
+        document.getElementById('back-btn').addEventListener('click', () => showWindow('window1'));
+        document.getElementById('no-btn').addEventListener('click', () => document.getElementById('popup').classList.add('hidden'));
+
+        // 4. [CRUD - CREATE] Listener do botão "Sim" (Envia CHAMADA + Salva no DB)
+        document.getElementById('yes-btn').addEventListener('click', async () => {
+          document.getElementById('popup').classList.add('hidden');
+
+          // 1. Prepara os dados para o BANCO DE DADOS
+          // (os nomes das chaves devem ser IDÊNTICOS aos das colunas do DB)
+          const callDataDB = {
+            sala: selectedRoom,
+            numero: selectedNumber
+          };
+
+          // 2. Prepara o payload do BROADCAST
+          // (este é para o receptor.py, pode manter o formato antigo)
+          const broadcastPayload = {
+            type: 'broadcast',
+            event: 'call',
+            payload: {
+              room: selectedRoom,
+              number: selectedNumber
+            }
+          };
+
+          // 3. Verifica o status da conexão
+          const statusBtn = document.getElementById('server-status');
+          const isConnected = statusBtn.classList.contains('bg-green-600');
+
+          if (isConnected) {
+            try {
+              // --- ETAPA DE CRIAÇÃO (INSERT) ---
+              showWindow('window4'); // Mostra "Aguardando"
+              document.getElementById('status-message').textContent = 'Salvando no banco...';
+              document.getElementById('status-message').className = 'text-2xl font-semibold text-gray-600';
+
+              // [ CORREÇÃO ]
+              // Esta nova linha limpa os detalhes da tela
+              document.getElementById('detail-message').textContent = '';
+
+              const { error } = await supabaseClient
+                .from('chamadas') // Nome da nossa tabela
+                .insert([callDataDB]); // Os dados que queremos inserir
+
+              if (error) {
+                // Se der erro no banco, avisa no console e na tela
+                console.error("Erro ao salvar no banco:", error.message);
+                alert(`Erro ao salvar no banco: ${error.message}`);
+                showWindow('window2'); // Volta para a grade
+              } else {
+                // SUCESSO! O banco salvou.
+
+                // Agora, envia o broadcast para o receptor.py
+                channel.send(broadcastPayload);
+
+                // Atualiza a UI de sucesso (como antes)
+                showSuccess();
+              }
+
+            } catch (err) {
+              console.error("Erro inesperado:", err.message);
+              alert(`Um erro inesperado ocorreu: ${err.message}`);
+              showWindow('window2'); // Volta para a grade
+            }
+
+          } else {
+            // Se não estiver conectado, não podemos salvar no DB
+            // A lógica de broadcast pendente não tenta salvar no DB
+            alert("Não é possível salvar. Servidor desconectado.");
+            showWaiting(); // Mostra 'Aguardando Resposta'
+          }
+        });
+        // ... (todo o seu código JS anterior, incluindo o listener 'yes-btn') ...
+
+        // [NOVO] --- Lógica do Widget de Chat ---
+        const chatToggleBtn = document.getElementById('chat-toggle-btn');
+        const chatWindow = document.getElementById('chat-window');
+        const chatForm = document.getElementById('chat-form');
+        const chatInput = document.getElementById('chat-input');
+        const chatMessages = document.getElementById('chat-messages');
+
+        // [ADICIONE ESTE BLOCO DENTRO DO DOMContentLoaded]
+
+        // --- [NOVO] Lógica do Menu de Contexto (Clique Direito) ---
+        const chatContextMenu = document.getElementById('chat-context-menu');
+        const contextDeleteBtn = document.getElementById('context-delete-btn');
+        let currentContextMenuMessageId = null; // Guarda o ID da mensagem clicada
+
+
+
+        // 2. Ouve o clique no botão "Apagar" do menu [CORRIGIDO]
+        contextDeleteBtn.addEventListener('click', async () => { // <-- 1. Adiciona 'async'
+          if (currentContextMenuMessageId) {
+            
+            // 2. Adiciona 'await' para esperar a função terminar
+            await handleDeleteMessage(currentContextMenuMessageId); 
+          }
+          
+          // 3. REMOVIDO as linhas abaixo, pois 'handleDeleteMessage'
+          // já cuida de fechar o menu e limpar o ID no bloco 'finally'.
+          
+          // chatContextMenu.classList.add('hidden');
+          // currentContextMenuMessageId = null;
+        });
+
+        // 3. Esconde o menu se clicar em qualquer outro lugar
+        window.addEventListener('click', (e) => {
+          if (!chatContextMenu.classList.contains('hidden')) {
+            chatContextMenu.classList.add('hidden');
+            currentContextMenuMessageId = null;
+          }
+        });
+        // --- Fim da Lógica do Menu de Contexto ---
+
+        // [NOVO] Captura o botão de fechar que criamos
+        const chatCloseBtn = document.getElementById('chat-close-btn');
+
+        // [NOVO] Captura o backdrop que acabamos de criar
+        const chatBackdrop = document.getElementById('chat-backdrop');
+
+        // [NOVAS LINHAS - AQUI ESTÁ A CORREÇÃO]
+        const emojiBtn = document.getElementById('emoji-btn');
+        const emojiPicker = document.getElementById('emoji-picker-element');
+
+        // [NOVO] Listener para fechar modals clicando no backdrop
+        chatBackdrop.addEventListener('click', () => {
+          closeAllModals();
+        });
+
+        const historyBtn = document.getElementById('history-btn'); // O botão principal
+        const historyModal = document.getElementById('history-modal');
+        const historyCloseBtn = document.getElementById('history-close-btn');
+        const historyContent = document.getElementById('history-content');
+
+        // [NOVO e MOVIDO] Função de Histórico (agora controla o modal)
+        async function showHistoryModal() {
+          // 1. Abre o modal, mostra o backdrop, desativa a grade
+          historyModal.classList.remove('hidden');
+          chatBackdrop.classList.remove('hidden'); // Reusa o backdrop do chat
+          setGridButtonsDisabled(true); // Desativa os botões da grade
+
+          // 2. Define o estado de carregamento
+          historyContent.innerHTML = '<p class="text-gray-500 text-center">Carregando...</p>';
+
+          // --- (Lógica de busca que já existia) ---
+          const today = new Date();
+          today.setHours(0, 0, 0, 0);
+          const tomorrow = new Date(today);
+          tomorrow.setDate(tomorrow.getDate() + 1);
+
+          const startOfToday = today.toISOString();
+          const startOfTomorrow = tomorrow.toISOString();
+
+          try {
+            const { data, error } = await supabaseClient
+              .from('chamadas')
+              .select('sala, numero, created_at')
+              .gte('created_at', startOfToday)
+              .lt('created_at', startOfTomorrow)
+              .order('created_at', { ascending: false });
+
+            if (error) {
+              console.error("Erro ao buscar histórico:", error.message);
+              historyContent.innerHTML = `<p class="text-red-500 text-center">Erro ao buscar histórico: ${error.message}</p>`;
+              return;
+            }
+
+            if (data.length === 0) {
+              historyContent.innerHTML = '<p class="text-gray-500 text-center">Nenhuma chamada registrada HOJE.</p>';
+            } else {
+              // [MODIFICADO] Constrói lista em HTML
+              const listItems = data.map((chamada) => {
+                const hora = new Date(chamada.created_at).toLocaleTimeString('pt-BR'); // Hora formatada
+                const sala = chamada.sala;
+                const numero = chamada.numero.toString().padStart(2, '0');
+
+                // Retorna um item de lista HTML
+                return `<div class="p-2 border-b border-gray-100 hover:bg-gray-50">
+                          <span class="font-semibold text-blue-600">[${hora}]</span>
+                          <span class="text-gray-800">Sala ${sala}, número ${numero}</span>
+                        </div>`;
+              }).join(''); // Junta todos os itens
+
+              historyContent.innerHTML = listItems; // Insere a lista no modal
+            }
+          } catch (err) {
+            console.error("Erro inesperado no showHistory:", err.message);
+            historyContent.innerHTML = `<p class="text-red-500 text-center">Erro inesperado: ${err.message}</p>`;
+          }
+        }
+
+        // [NOVO] Listener do Botão de Abrir Histórico
+        historyBtn.addEventListener('click', showHistoryModal);
+
+        // [NOVO] Listener do Botão de Fechar do Histórico
+        historyCloseBtn.addEventListener('click', () => {
+          historyModal.classList.add('hidden');
+          chatBackdrop.classList.add('hidden'); // Esconde o mesmo backdrop
+          setGridButtonsDisabled(false); // Reativa a grade
+        });
+
+
+        // --- [NOVO] Inicia o Canal de Chat ---
+        chatChannel
+          .on(
+            'postgres_changes', // "Escuta" mudanças no banco
+            {
+              event: 'INSERT', // Especificamente no evento de INSERIR
+              schema: 'public',
+              table: 'chat_messages' // Na tabela chat_messages
+            },
+            (payload) => {
+              // Quando uma nova mensagem (payload) chegar...
+              console.log('Nova mensagem de chat recebida!', payload.new);
+
+              const newMessage = payload.new;
+
+              // Verifica se a mensagem é nossa ou de outro
+              const senderType = (newMessage.sender_name === senderName) ? 'user' : 'other';
+
+              // [MODIFICADO]
+              // Agora passamos o timestamp (created_at) da nova mensagem
+              addChatMessage(newMessage.message_content, senderType, newMessage.sender_name, newMessage.created_at);
+            }
+          )
+          .subscribe((status) => {
+            // Apenas para debug, para sabermos que o canal de chat conectou
+            if (status === 'SUBSCRIBED') {
+              console.log('Canal de CHAT conectado!');
+            }
+          });
+        // --- Fim do Canal de Chat ---
+
+        // 1. Botão de Abrir (o ícone flutuante) - [LÓGICA DE IDENTIFICAÇÃO]
+        chatToggleBtn.addEventListener('click', () => {
+          // Mostra o fundo e desativa a grade (ação comum)
+          chatBackdrop.classList.remove('hidden');
+          setGridButtonsDisabled(true);
+
+          // Pega o novo modal
+          const identificationModal = document.getElementById('identification-modal');
+
+          // Verifica se o usuário JÁ ESTÁ identificado
+          if (senderName) {
+            // Se sim, apenas abre o chat e carrega o histórico
+            chatWindow.classList.remove('hidden');
+            loadChatHistory();
+          } else {
+            // Se não (senderName é null), abre o MODAL DE IDENTIFICAÇÃO
+            identificationModal.classList.remove('hidden');
+          }
+        });
+
+        // [NOVO] --- Lógica do Modal de Identificação ---
+        const identificationModal = document.getElementById('identification-modal');
+
+        document.querySelectorAll('.id-btn').forEach(btn => {
+          btn.addEventListener('click', () => {
+            // 1. Define o nome do remetente globalmente
+            senderName = btn.dataset.name;
+            console.log(`Usuário identificado como: ${senderName}`);
+
+            // 2. Esconde o modal de identificação
+            identificationModal.classList.add('hidden');
+
+            // 3. Mostra a janela principal do chat
+            chatWindow.classList.remove('hidden');
+
+            // 4. Carrega o histórico do chat (AGORA que temos um nome)
+            loadChatHistory();
+          });
+        });
+        // --- Fim da Lógica de Identificação ---
+
+        // 2. Botão de Fechar (o 'X' dentro do chat)
+        chatCloseBtn.addEventListener('click', () => {
+          chatWindow.classList.add('hidden');
+          chatBackdrop.classList.add('hidden');
+          setGridButtonsDisabled(false);
+
+          senderName = null; // [ADICIONADO] Esquece quem o usuário era.
+        });
+
+        // 2. Lidar com o envio de mensagens (AGORA INTEGRADO)
+        chatForm.addEventListener('submit', async (e) => {
+          e.preventDefault();
+          const message = chatInput.value.trim();
+
+          if (message) {
+            const messageData = {
+              sender_name: senderName, // Nosso nome de remetente
+              message_content: message // A mensagem
+            };
+
+            // Limpa o input imediatamente
+            chatInput.value = '';
+
+            // Envia para o banco de dados
+            const { error } = await supabaseClient
+              .from('chat_messages')
+              .insert([messageData]);
+
+            if (error) {
+              console.error("Erro ao enviar mensagem:", error.message);
+              // Opcional: mostrar erro na UI
+              addChatMessage(`Falha ao enviar: ${error.message}`, 'other', 'Sistema');
+              // Restaura a mensagem no input para o usuário tentar de novo
+              chatInput.value = message;
+            }
+
+            // [REMOVIDO]
+            // Não precisamos mais disso, pois o Realtime (próximo passo)
+            // vai capturar nossa própria mensagem e exibi-la.
+            // addChatMessage(message, 'user');
+            // setTimeout(...);
+          }
+        });
+
+
+
+        // 1. Mostrar/Esconder o seletor ao clicar no botão
+        emojiBtn.addEventListener('click', (e) => {
+          e.stopPropagation(); // Impede que o clique "vaze" para o document
+          emojiPicker.classList.toggle('hidden');
+        });
+
+        // 2. Inserir o emoji ao clicar em um
+        emojiPicker.addEventListener('emoji-click', (event) => {
+          // Insere o emoji na posição atual do cursor
+          const emoji = event.detail.unicode;
+          const start = chatInput.selectionStart;
+          const end = chatInput.selectionEnd;
+          const text = chatInput.value;
+
+          chatInput.value = text.substring(0, start) + emoji + text.substring(end);
+
+          // Move o cursor para depois do emoji inserido
+          chatInput.selectionStart = chatInput.selectionEnd = start + emoji.length;
+
+          // Mantém o foco no input e esconde o picker
+          chatInput.focus();
+          // emojiPicker.classList.add('hidden'); // Opcional: esconder após selecionar
+        });
+
+        // 3. Esconder o seletor se clicar em qualquer outro lugar
+        document.addEventListener('click', (e) => {
+          // Se o clique NÃO foi no botão E NÃO foi dentro do picker
+          if (e.target !== emojiBtn && !emojiPicker.contains(e.target)) {
+            emojiPicker.classList.add('hidden');
+          }
+        });
+
+        /**
+         * [NOVO] Formata uma data para o separador de chat
+         * @param {Date} dateObj O objeto Date da mensagem
+         * @returns {string} O texto formatado (ex: "Hoje", "Ontem", "10/11/2025")
+         */
+        function getFormattedDateLabel(dateObj) {
+          const today = new Date();
+          const yesterday = new Date(today);
+          yesterday.setDate(yesterday.getDate() - 1);
+
+          // Zera a hora para comparar apenas os dias
+          today.setHours(0, 0, 0, 0);
+          yesterday.setHours(0, 0, 0, 0);
+          dateObj.setHours(0, 0, 0, 0);
+
+          if (dateObj.getTime() === today.getTime()) {
+            return 'Hoje';
+          }
+
+          if (dateObj.getTime() === yesterday.getTime()) {
+            return 'Ontem';
+          }
+
+          // Formato DD/MM/AAAA
+          return dateObj.toLocaleDateString('pt-BR', {
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric'
+          });
+        }
+
+
+
+        /**
+         * [NOVO] Retorna as classes de cor corretas para um balão de chat
+         * @param {string} senderName O nome da sala (remetente)
+         * @returns {string} As classes de cor do Tailwind (ex: 'bg-yellow-200 text-yellow-900')
+         */
+        function getChatColorClasses(senderName) {
+          switch (senderName) {
+            case 'Berçário':
+              return 'bg-yellow-200 text-yellow-900'; // Amarelo
+            case '02 a 04 anos':
+              return 'bg-red-200 text-red-900';       // Vermelho
+            case '05 a 08 anos':
+              return 'bg-green-200 text-green-900';   // Verde
+            case '09 a 12 anos':
+              return 'bg-purple-200 text-purple-900'; // Lilás
+            default:
+              // Cor padrão para 'Sistema' ou outros nomes
+              return 'bg-gray-200 text-gray-800';
+          }
+        }
+
+        /**
+         * 3. Função para adicionar mensagens à tela
+         * @param {string} message O texto da mensagem
+...
+
+        // [SUBSTITUA SUA FUNÇÃO addChatMessage POR ESTA]
+
+/**
+ * 3. Função para adicionar mensagens à tela
+ * @param {string} message O texto da mensagem
+ * @param {'user' | 'other'} sender Quem enviou ('user' ou 'other')
+ * @param {string} [senderDisplayName] O nome de quem enviou (opcional, para 'other')
+ * @param {string} [timestamp] A data/hora (string ISO) da mensagem
+ * @param {string} [messageId] O ID (UUID) da mensagem no banco
+ */
+        function addChatMessage(message, sender, senderDisplayName = '', timestamp = '', messageId = null) {
+
+          // --- Lógica do Separador de Data (Sem alteração) ---
+          if (timestamp) {
+            try {
+              const date = new Date(timestamp);
+              const currentMessageDateStr = date.toISOString().split('T')[0];
+              if (currentMessageDateStr !== lastMessageDateStr) {
+                const dateLabel = getFormattedDateLabel(new Date(timestamp));
+                const separatorEl = document.createElement('div');
+                separatorEl.className = 'text-center my-3';
+                separatorEl.innerHTML = `<span class="bg-gray-200 text-gray-700 text-xs font-semibold px-3 py-1 rounded-full">${dateLabel}</span>`;
+                chatMessages.appendChild(separatorEl);
+                lastMessageDateStr = currentMessageDateStr;
+              }
+            } catch (e) { /*...*/ }
+          }
+          // --- Fim do Separador ---
+
+          const messageEl = document.createElement('div');
+          messageEl.className = 'relative chat-balloon'; // 'relative' é importante para a seta
+
+          // --- Formatação da Hora (Sem alteração) ---
+          let timeString = '';
+          if (timestamp) {
+            try {
+              const date = new Date(timestamp);
+              if (!isNaN(date.getTime())) {
+                const hours = String(date.getHours()).padStart(2, '0');
+                const minutes = String(date.getMinutes()).padStart(2, '0');
+                timeString = `${hours}:${minutes}`;
+              }
+            } catch (e) { /*...*/ }
+          }
+          const timeHtml = `<span class="text-right text-xs opacity-70 mt-1 ml-2">${timeString}</span>`;
+          // --- Fim da Formatação ---
+
+          // [MODIFICADO] Conteúdo da mensagem (agora com ícone 🚫)
+          let messageContentHtml = '';
+          if (message === 'mensagem apagada') {
+            messageContentHtml = `
+      <span class="deleted-message">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+          <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
+        </svg>
+        ${message}
+      </span>`;
+          } else {
+            messageContentHtml = `<span>${message}</span>`;
+          }
+
+          // [MODIFICADO] Lógica do botão (agora é a seta com onclick)
+          let menuArrowHtml = '';
+          if (sender === 'user' && message !== 'mensagem apagada' && messageId) {
+            menuArrowHtml = `
+          <div class="chat-menu-arrow-btn" 
+              onclick="showChatMenu(event, '${messageId}')" 
+              title="Opções">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+              <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" />
+            </svg>
+          </div>
+        `;
+          }
+
+          if (sender === 'user') {
+            // (Balão do usuário)
+            messageEl.className += ' bg-blue-500 text-white p-2 rounded-lg self-end max-w-xs break-words';
+            messageEl.innerHTML = `
+          ${menuArrowHtml} <div class="flex items-end justify-between">
+            ${messageContentHtml}
+            ${timeHtml}
+          </div>
+        `;
+          } else {
+            // (Balões dos outros)
+            const colorClasses = getChatColorClasses(senderDisplayName);
+            messageEl.className += ` ${colorClasses} p-2 rounded-lg self-start max-w-xs break-words`;
+            messageEl.innerHTML = `
+            <strong class="text-xs block font-semibold">${senderDisplayName}</strong>
+            <div class="flex items-end justify-between">
+              ${messageContentHtml}
+              ${timeHtml}
+            </div>
+          `;
+          }
+
+          if (messageId) {
+            messageEl.id = `msg-${messageId}`;
+          }
+
+          chatMessages.appendChild(messageEl);
+          chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+
+        // [NOVO] Função para Carregar Histórico do Chat ---
+        // (Agora esta função vem DEPOIS)
+        async function loadChatHistory() {
+          lastMessageDateStr = null;
+          const messagesContainer = document.getElementById('chat-messages');
+
+          // 1. Limpa as mensagens antigas e mostra "Carregando"
+          messagesContainer.innerHTML = '<p class="text-gray-500 text-center">Carregando histórico...</p>';
+
+          try {
+            // 1. Modifique esta linha:
+            const { data, error } = await supabaseClient
+              .from('chat_messages')
+              .select('id, message_content, sender_name, created_at') // <-- [MODIFICADO] Pedimos o 'id'
+              .order('created_at', { ascending: true });
+
+            if (error) {
+              throw error;
+            }
+
+            // 3. Limpa o "Carregando"
+            messagesContainer.innerHTML = '';
+
+            // 4. Adiciona cada mensagem à tela
+            if (data.length > 0) {
+              data.forEach(msg => {
+                // Descobre se a mensagem é do usuário atual ou de outro
+                const senderType = (msg.sender_name === senderName) ? 'user' : 'other';
+
+                // [IMPORTANTE]
+                // Estamos passando msg.created_at como o quarto argumento.
+                // A função addChatMessage ainda não sabe o que fazer com ele,
+                // mas vamos corrigir isso no próximo passo.
+                addChatMessage(msg.message_content, senderType, msg.sender_name, msg.created_at, msg.id);
+              });
+            } else {
+              messagesContainer.innerHTML = '<p class="text-gray-500 text-center">Nenhuma mensagem no histórico.</p>';
+            }
+
+          } catch (err) {
+            console.error("Erro ao carregar histórico:", err.message);
+            messagesContainer.innerHTML = `<p class="text-red-500 text-center">Falha ao carregar histórico.</p>`;
+          }
+        }
+
+        // [NOVO] --- Função para Fechar Todos os Modais ---
+        /**
+         * Fecha todos os modais abertos (Chat, Histórico, ID)
+         * e o backdrop, e reativa a grade.
+         */
+        function closeAllModals() {
+          // 1. Pega todos os elementos que podem estar abertos
+          const chatBackdrop = document.getElementById('chat-backdrop');
+          const chatWindow = document.getElementById('chat-window');
+          const historyModal = document.getElementById('history-modal');
+          const identificationModal = document.getElementById('identification-modal');
+
+          // 2. Verifica se o chat principal estava aberto (antes de fechar)
+          const isChatOpen = !chatWindow.classList.contains('hidden');
+
+          // 3. Esconde tudo
+          chatBackdrop.classList.add('hidden');
+          chatWindow.classList.add('hidden');
+          historyModal.classList.add('hidden');
+          identificationModal.classList.add('hidden');
+
+          // 4. Reativa a grade
+          setGridButtonsDisabled(false);
+
+          // 5. Se o chat principal foi o que fechou, faz o "logout"
+          if (isChatOpen) {
+            senderName = null;
+          }
+        }
+        // --- Fim da função de fechar modais ---
+        // --- Fim da Lógica do Chat ---
+
+        // [NOVO] --- Função para Ativar/Desativar os Botões da Grade ---
+        /**
+         * Habilita ou desabilita todos os botões da grade.
+         * @param {boolean} disabled True para desabilitar, false para habilitar.
+         */
+        function setGridButtonsDisabled(disabled) {
+          const buttons = document.querySelectorAll('#grid-container .num-btn');
+          buttons.forEach(btn => {
+            btn.disabled = disabled;
+          });
+        }
+
+        // --- Fim da nova função ---
+
+
+        // [NOVO] Listener para fechar modals com a tecla 'Escape'
+        window.addEventListener('keydown', (event) => {
+          if (event.key === 'Escape') {
+            closeAllModals();
+          }
+        });
+
+
+      }); // Este é o '});' de fechamento do DOMContentLoaded
+
+      // [ADICIONE ESTE BLOCO DENTRO DO DOMContentLoaded]
+
+      // --- [NOVO] Lógica do Menu de Toque Longo (Mobile) ---
+      let longPressTimer = null;
+      let touchStartX = 0;
+      let touchStartY = 0;
+
+
+
+
+
+      // [ADICIONE ESTA NOVA FUNÇÃO no <script>]
+
+      /**
+       * [NOVO] Mostra o menu de contexto em uma posição específica
+       * @param {Event} event O evento do clique
+       * @param {string} messageId O ID da mensagem
+       */
+      function showChatMenu(event, messageId) {
+        // Impede que o clique na seta também feche o menu
+        event.stopPropagation();
+
+        const chatContextMenu = document.getElementById('chat-context-menu');
+
+        // Salva o ID da mensagem para o botão "Apagar" saber qual é
+        currentContextMenuMessageId = messageId;
+
+        // Pega a posição do botão de seta que foi clicado
+        const rect = event.currentTarget.getBoundingClientRect();
+
+        // Posiciona o menu (alinhado à direita, abaixo do botão)
+        chatContextMenu.style.top = `${rect.bottom + window.scrollY + 2}px`;
+        chatContextMenu.style.left = `${rect.left + window.scrollX - chatContextMenu.offsetWidth + rect.width}px`;
+
+        chatContextMenu.classList.remove('hidden');
+      }
+      
+      // --- Fim da Lógica do Toque Longo ---
+
+      // [SUBSTITUA SUA FUNÇÃO handleDeleteMessage POR ESTA]
+
+      async function handleDeleteMessage(messageId) {
+        if (!messageId) return;
+
+        const updatePayload = {
+          message_content: 'mensagem apagada'
+        };
+
+        try {
+          const { error } = await supabaseClient
+            .from('chat_messages')
+            .update(updatePayload)
+            .eq('id', messageId);
+
+          if (error) {
+            console.error('Erro ao apagar mensagem:', error.message);
+            alert('Não foi possível apagar a mensagem.');
+          } else {
+            console.log('Mensagem apagada (atualizada) com sucesso.');
+
+            // [MODIFICADO] Atualização imediata da UI
+            const messageElement = document.getElementById(`msg-${messageId}`);
+            if (messageElement) {
+              // Encontra o container do conteúdo e o botão de seta
+              const contentContainer = messageElement.querySelector('div.flex');
+              const arrowBtn = messageElement.querySelector('.chat-menu-arrow-btn');
+
+              if (contentContainer) {
+                // Substitui o conteúdo pelo HTML da mensagem apagada
+                contentContainer.innerHTML = `
+            <span class="deleted-message">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
+              </svg>
+              mensagem apagada
+            </span>
+            ${messageElement.querySelector('span.text-xs').outerHTML} `;
+              }
+              if (arrowBtn) {
+                arrowBtn.remove(); // Remove o botão de seta
+              }
+            }
+          }
+        } catch (err) {
+          console.error('Erro inesperado ao apagar:', err.message);
+          alert('Um erro inesperado ocorreu.');
+        } finally {
+          // Esconde o menu e reseta o ID
+          document.getElementById('chat-context-menu').classList.add('hidden');
+          currentContextMenuMessageId = null;
+        }
+      }
+    </script>
+</body>
+
+</html>

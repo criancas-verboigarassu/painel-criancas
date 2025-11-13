@@ -1,0 +1,12 @@
+# Node modules
+node_modules
+
+# Electron/Build outputs
+dist
+
+# Arquivos de log e cache
+*.log
+.DS_Store
+
+# Arquivos temporários do Electron Builder
+.electron-builder

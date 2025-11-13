@@ -1,0 +1,634 @@
+/* notification.css (Estilo Discord) */
+
+/* 1. Variáveis de Cor (Inspiradas no Discord Dark Mode) */
+:root {
+  --bg-color: #2f3136;
+  --font-color-header: #ffffff;
+  --font-color-main: #dcddde;
+  --font-color-label: #b9bbbe;
+  --accent-call: #43b581;
+  --accent-number: #faa61a;
+  --shadow-color: rgba(0, 0, 0, 0.2);
+  --close-color: #b9bbbe;
+  --close-hover-bg: rgba(255, 255, 255, 0.05);
+  --close-hover-color: #dcddde;
+  --slider-track-bg: #202225;
+  --slider-thumb-bg: #b9bbbe;
+}
+
+/* 2. Resets e Estilo Base */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+  overflow: hidden;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  background-color: transparent;
+}
+
+/* 3. Animação de entrada (sutil) */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: scale(0.98) translateY(5px);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+/* 4. O Container Principal (O Card) */
+.container {
+  width: 384px;
+  /* [ALTERAÇÃO] Voltamos para 220px (lembre-se do main.js!) */
+  height: 300px;
+
+  background-color: var(--bg-color);
+  /* Fallback */
+
+  border-radius: 8px;
+  box-shadow: 0 8px 16px var(--shadow-color);
+  padding: 18px 24px 24px 24px;
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  animation: fadeIn 0.2s ease-out;
+}
+
+/* [NOVO] Adicione este bloco ao seu notification.css */
+
+/* 4.5. Propriedades de Arraste do Electron */
+
+/* Define a região inteira como arrastável */
+.draggable {
+  -webkit-app-region: drag;
+}
+
+/* Define elementos interativos como NÃO-arrastáveis (clicáveis) */
+.no-drag {
+  -webkit-app-region: no-drag;
+}
+
+/* 5. Controles da Janela (Sempre visíveis) */
+.window-controls {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  display: flex;
+  gap: 4px;
+}
+
+.close-btn,
+.settings-btn {
+  position: relative;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--close-color);
+  border-radius: 50%;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.close-btn:hover,
+.settings-btn:hover {
+  background-color: var(--close-hover-bg);
+  color: var(--close-hover-color);
+}
+
+.close-btn svg,
+.settings-btn svg {
+  width: 20px;
+  height: 20px;
+}
+
+/* 6. Conteúdo de Texto (Visualização Principal) */
+.header {
+  font-size: 1.1rem; 
+  font-weight: 600; 
+  color: var(--accent-call); 
+  margin-bottom: 0;
+  padding-bottom: 10px; /* [ADICIONADO] */
+  border-bottom: 1px solid var(--slider-track-bg); /* [ADICIONADO] */
+}
+
+/* 7. Contador Regressivo */
+.countdown {
+  font-size: 0.875rem; 
+  font-weight: 500;
+  color: var(--font-color-label);
+  
+  /* --- Alterações --- */
+  position: absolute;
+  /* (Calculado: padding + header + borda + o novo margin-top do content-block) */
+  top: 57px; 
+  right: 24px; /* Alinha com o padding-right do .container */
+}
+
+/* 8. Bloco de Conteúdo (Sala / Número) */
+.content-block {
+  margin-top: 26px; /* [ADICIONADO] */
+  margin-bottom: 8px;
+}
+
+/* 9. Rótulos ("SALA", "NÚMERO") */
+.label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--font-color-label);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* 10. Dados (Nome da sala) */
+#room-label {
+  font-size: 1.8rem;
+  font-weight: 700;
+  color: var(--font-color-header);
+  line-height: 1.2;
+  margin-bottom: -16px; /* [ADICIONE ESTA LINHA] */
+}
+
+/* 11. Dados (Número) */
+#number-label {
+  font-size: 2.5rem;
+  font-weight: 800;
+  color: var(--accent-number);
+  line-height: 1.1;
+}
+
+/* [NOVO] Classe utilitária para esconder */
+.hidden {
+  display: none;
+}
+
+/* [NOVO] Estilos da "Tela" de Configurações */
+#settings-view {
+  /* Precisamos de espaço para os botões no canto (24px + 32px) */
+  padding-top: 0;
+}
+
+.settings-title {
+  font-size: 1.1rem; 
+  font-weight: 600;
+  color: var(--font-color-header);
+  margin-bottom: 0; /* [ALTERADO] */
+  padding-bottom: 10px; /* [ADICIONADO] */
+  border-bottom: 1px solid var(--slider-track-bg); /* [ADICIONADO] */
+}
+
+.setting-item label {
+  display: block;
+  color: var(--font-color-label);
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  margin-bottom: 8px;
+  margin-top: 10px; /* [ADICIONADO] */
+}
+
+/* Por padrão, a 'main-view' está visível e 'settings-view' escondida */
+#settings-view {
+  display: none;
+}
+
+/* Quando o .container tiver a classe .settings-active... */
+.settings-active #main-view {
+  display: none;
+  /* Esconde a 'main-view' */
+}
+
+.settings-active #settings-view {
+  display: block;
+  /* Mostra a 'settings-view' */
+}
+
+
+/* 12. Estilização básica do Slider (Sem alteração) */
+input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 8px;
+  background: var(--slider-track-bg);
+  border-radius: 5px;
+  outline: none;
+}
+
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 20px;
+  height: 20px;
+  background: var(--slider-thumb-bg);
+  border-radius: 50%;
+  cursor: pointer;
+}
+
+input[type="range"]::-moz-range-thumb {
+  width: 20px;
+  height: 20px;
+  background: var(--slider-thumb-bg);
+  border-radius: 50%;
+  cursor: pointer;
+}
+
+/* [ADICIONE ESTE BLOCO - Perto do .settings-btn] */
+.history-btn {
+  position: relative;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--close-color);
+  border-radius: 50%;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.history-btn:hover {
+  background-color: var(--close-hover-bg);
+  color: var(--close-hover-color);
+}
+
+.history-btn svg {
+  width: 20px;
+  height: 20px;
+}
+
+/* [ADICIONE ESTE BLOCO - Perto dos estilos do #settings-view] */
+#history-view {
+  padding-top: 0;
+  /* Espaço para os botões */
+}
+
+.history-title {
+  font-size: 1.1rem; 
+  font-weight: 600;
+  color: var(--font-color-header);
+  margin-bottom: 0; /* [ALTERADO] */
+  padding-bottom: 10px; /* [ADICIONADO] */
+  border-bottom: 1px solid var(--slider-track-bg); /* [ADICIONADO] */
+}
+
+.history-list {
+  height: 210px;
+  /* Altura máxima com scroll */
+  overflow-y: auto;
+  /* Adiciona scroll se a lista for longa */
+  font-size: 0.9rem;
+  color: var(--font-color-label);
+  -webkit-app-region: no-drag;
+  /* Permite o clique e o scroll */
+}
+
+/* Estilos para cada item do histórico */
+.history-item {
+  padding: 6px 0;
+  border-bottom: 1px solid var(--slider-track-bg);
+  /* Reusa a cor escura */
+}
+
+.history-item:last-child {
+  border-bottom: none;
+}
+
+.history-item span {
+  color: var(--font-color-main);
+  font-weight: 600;
+}
+
+/* [MODIFIQUE ESTE BLOCO - Lógica de troca de visualização] */
+
+/* Por padrão, main-view está visível */
+#settings-view,
+#history-view,
+#chat-view {
+  display: none;
+}
+
+/* Quando .container tiver .settings-active... */
+.settings-active #main-view,
+.settings-active #history-view,
+.settings-active #chat-view {
+  display: none;
+  /* Esconde main, history e chat */
+}
+
+.settings-active #settings-view {
+  display: block;
+  /* Mostra settings */
+}
+
+/* Quando .container tiver .history-active... */
+.history-active #main-view,
+.history-active #settings-view,
+.history-active #chat-view {
+  display: none;
+  /* Esconde main, settings e chat */
+}
+
+.history-active #history-view {
+  display: block;
+  /* Mostra history */
+}
+
+/* Quando .container tiver .chat-active... */
+.chat-active #main-view,
+.chat-active #settings-view,
+.chat-active #history-view {
+  display: none;
+  /* Esconde main, settings e history */
+}
+
+.chat-active #chat-view {
+  display: block;
+  /* Mostra chat */
+}
+
+/* [NOVO BLOCO - Para a funcionalidade de copiar] */
+.copy-text-block {
+  display: flex; 
+  align-items: center; 
+  gap: 8px; 
+  
+  /* [MUDANÇA] Trocamos 'auto' por um valor fixo */
+  margin-top: 18px; /* Ajuste este valor como desejar */
+
+  padding-top: 10px;
+  padding-bottom: 8px; /* Preserva o padding original */
+  padding-left: 10px; /* Preserva o padding original */
+  padding-right: 10px; /* Preserva o padding original */
+  border-top: 1px solid var(--slider-track-bg); /* [ADICIONADO] */
+  background-color: var(--close-hover-bg); 
+  border-radius: 8px;
+}
+
+.copy-text {
+  flex-grow: 1;
+  /* Faz o texto ocupar o máximo de espaço */
+  font-size: 0.85rem;
+  /* Um pouco menor */
+  color: #c9d1d9;
+  /* Cor clara para o texto */
+  white-space: nowrap;
+  /* Evita quebra de linha */
+  overflow: hidden;
+  /* Esconde o que exceder */
+  text-overflow: ellipsis;
+  /* Adiciona "..." se o texto for muito longo */
+}
+
+.copy-button {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #c9d1d9;
+  /* Cor do ícone */
+  padding: 4px;
+  border-radius: 4px;
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+.copy-button:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+  color: #ffffff;
+}
+
+.copy-button svg {
+  width: 18px;
+  height: 18px;
+}
+
+/* [ADICIONE ESTE BLOCO - Perto do .history-btn] */
+.chat-btn {
+  position: relative;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--close-color);
+  border-radius: 50%;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.chat-btn:hover {
+  background-color: var(--close-hover-bg);
+  color: var(--close-hover-color);
+}
+
+.chat-btn svg {
+  width: 20px;
+  height: 20px;
+}
+
+/* [ADICIONE ESTE BLOCO - Perto dos estilos do #history-view] */
+#chat-view {
+  padding-top: 0;
+  /* Espaço para os botões */
+}
+
+.chat-title {
+  font-size: 1.1rem; 
+  font-weight: 600;
+  color: var(--font-color-header);
+  margin-bottom: 0; /* Removemos a margem antiga */
+  padding-bottom: 10px; /* Damos um espaço interno */
+  border-bottom: 1px solid var(--slider-track-bg); /* A linha! */
+}
+
+.chat-list  {
+  height: 160px; 
+  overflow-y: auto; 
+  font-size: 0.9rem;
+  color: var(--font-color-label);
+  -webkit-app-region: no-drag; 
+  display: flex; 
+  flex-direction: column; 
+  gap: 8px; 
+  margin-top: 10px; /* [ADICIONE ESTA LINHA] */
+}
+
+/* [NOVO] Estilos básicos para os balões de chat */
+.chat-message {
+  padding: 8px 10px;
+  border-radius: 8px;
+  max-width: 80%;
+  word-wrap: break-word;
+}
+
+.chat-message.other {
+  background-color: var(--slider-track-bg);
+  /* Cor escura (recebida) */
+  color: var(--font-color-main);
+  align-self: flex-start;
+}
+
+.chat-message.other strong {
+  display: block;
+  font-size: 0.75rem;
+  color: var(--accent-number);
+  /* Cor de destaque para o nome */
+  margin-bottom: 2px;
+}
+
+/* [ADICIONE ESTE BLOCO NO FINAL DO CSS] */
+
+/* Estiliza o <form> (o container do input e do botão) */
+.chat-input-form {
+  display: flex;
+  margin-top: 0; /* Removemos a margem antiga */
+  padding-top: 10px; /* Damos um espaço interno */
+  border-top: 1px solid var(--slider-track-bg); /* A linha! */
+  -webkit-app-region: no-drag; /* Garante que é clicável */
+}
+
+/* Estiliza o <input> */
+.chat-input {
+  flex-grow: 1;
+  /* Ocupa o máximo de espaço */
+  background-color: var(--slider-track-bg);
+  /* Fundo escuro */
+  color: var(--font-color-main);
+  border: 1px solid var(--bg-color);
+  /* Borda "invisível" */
+  padding: 8px 10px;
+  border-radius: 8px 0 0 8px;
+  /* Arredonda só à esquerda */
+  font-size: 0.9rem;
+  outline: none;
+}
+
+.chat-input:focus {
+  border-color: var(--accent-number);
+  /* Destaque laranja ao focar */
+  z-index: 10;
+  position: relative;
+}
+
+.chat-input::placeholder {
+  color: var(--font-color-label);
+  opacity: 0.7;
+}
+
+/* Estiliza o <button> de envio */
+.chat-send-btn {
+  background-color: var(--slider-track-bg);
+  /* Fundo escuro */
+  border: 1px solid var(--bg-color);
+  border-left: none;
+  /* Remove borda da junção */
+  color: var(--accent-number);
+  /* Cor laranja */
+  padding: 0 10px;
+  border-radius: 0 8px 8px 0;
+  /* Arredonda só à direita */
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.2s ease;
+}
+
+.chat-send-btn:hover {
+  background-color: #2a2c30;
+  /* Um pouco mais claro no hover */
+}
+
+.chat-send-btn svg {
+  width: 18px;
+  height: 18px;
+}
+
+/* [ADICIONE ESTE NOVO BLOCO] */
+
+.chat-message.self {
+  padding: 8px 10px;
+  border-radius: 8px;
+  max-width: 80%;
+  word-wrap: break-word;
+
+  /* Cor de fundo sutilmente diferente (a mesma do hover dos botões) */
+  background-color: var(--close-hover-bg);
+  color: var(--font-color-main);
+
+  /* A mudança principal: alinha à direita */
+  align-self: flex-end;
+}
+
+/* [ADICIONE ESTE NOVO BLOCO - Perto dos outros estilos de .chat-...] */
+
+/* Estiliza o separador de data ("Hoje", "Ontem", etc.) */
+.chat-date-separator {
+  display: flex;
+  align-items: center;
+  color: var(--font-color-label); /* Cor cinza, sutil */
+  font-size: 0.75rem; /* Tamanho pequeno */
+  font-weight: 600;
+  margin: 15px 0 10px 0; /* Espaçamento vertical para "respirar" */
+  -webkit-app-region: no-drag; /* Garante que não é arrastável */
+}
+
+/* Cria a linha à esquerda do texto */
+.chat-date-separator::before {
+  content: '';
+  flex-grow: 1; /* Ocupa o espaço disponível */
+  border-bottom: 1px solid var(--slider-track-bg); /* Cor da linha (a mesma dos outros separadores) */
+  margin-right: 0.5em; /* Espaço entre a linha e o texto */
+}
+
+/* Cria a linha à direita do texto */
+.chat-date-separator::after {
+  content: '';
+  flex-grow: 1; /* Ocupa o espaço disponível */
+  border-bottom: 1px solid var(--slider-track-bg); /* Cor da linha */
+  margin-left: 0.5em; /* Espaço entre o texto e a linha */
+}
+
+/* [ADICIONE ESTE BLOCO NO FINAL DO notification.css] */
+
+/* --- Estilização da Barra de Rolagem --- */
+
+/* 1. Define a largura e altura da barra (para scroll vertical e horizontal) */
+::-webkit-scrollbar {
+  width: 8px;  /* Largura para scroll vertical */
+  height: 8px; /* Altura para scroll horizontal (se houver) */
+}
+
+/* 2. Define a 'trilha' (o fundo) da barra */
+::-webkit-scrollbar-track {
+  background: var(--slider-track-bg); /* Cor mais escura, a mesma dos inputs */
+  border-radius: 4px; /* Cantos arredondados */
+}
+
+/* 3. Define o 'polegar' (a barra que se move) */
+::-webkit-scrollbar-thumb {
+  background: var(--bg-color); /* Cor de fundo principal, um pouco mais clara */
+  border-radius: 4px; /* Cantos arredondados */
+  /* Borda sutil para dar contraste com a trilha */
+  border: 1px solid var(--slider-track-bg); 
+}
+
+/* 4. Efeito ao passar o mouse sobre o 'polegar' */
+::-webkit-scrollbar-thumb:hover {
+  background: #3a3d42; /* Um cinza um pouco mais claro para destacar */
+}

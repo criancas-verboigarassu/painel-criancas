@@ -1,0 +1,52 @@
+{
+  "name": "receptor-electron",
+  "version": "1.0.0",
+  "description": "Receptor de chamadas de emergência do painel.",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "build": "electron-builder",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "Sua Igreja ou Organização",
+  "license": "ISC",
+  "dependencies": {
+    "@supabase/functions-js": "^2.81.1",
+    "@supabase/supabase-js": "^2.80.0",
+    "ws": "^8.18.3"
+  },
+  "devDependencies": {
+    "electron": "^39.1.1",
+    "electron-builder": "^24.13.3"
+  },
+  "build": {
+    "appId": "com.suaorganizacao.receptor-chamadas",
+    "productName": "Receptor de Chamadas",
+    "directories": {
+      "output": "dist",
+      "buildResources": "build_assets"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "notification.html",
+      "notification.css",
+      "notification.js",
+      "icon.ico",
+      "package.json"
+    ],
+    "win": {
+      "target": "nsis",
+      "icon": "icon.ico"
+    },
+    "mac": {
+      "target": "dmg",
+      "icon": "icon.icns"
+    },
+    "linux": {
+      "target": "AppImage",
+      "icon": "icon.png"
+    }
+  }
+}
